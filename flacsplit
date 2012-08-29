@@ -1,0 +1,17 @@
+#!/bin/bash
+#
+# This here fancy script splits up flac files using cue stuff
+# Like a beast!  It can't cook bacon... yet.  We're having that
+# looked into by top men.  Top.  Men.
+cuesheet=$1
+echo "Split flac by cue sheets:"
+if [[ $2 ]]; then
+    srcfile=$2
+else
+    echo "Usage: flacsplit [cue] [file]"
+    exit
+fi
+
+cuebreakpoints -i cue "$cuesheet" | shnsplit -O always -o flac "$srcfile" -f "$cuesheet" -t '%n. %p - %t'
+
+echo "DONE!"
