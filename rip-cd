@@ -10,6 +10,7 @@
 # flacsplit (or something similar right in here) for optimum
 # lazitude.
 #
+# This crappy script needs cdrtools.
 
 use strict;
 use warnings;
