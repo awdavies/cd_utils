@@ -1,0 +1,152 @@
+#!/usr/bin/env perl
+#
+# This script is used to rip audio information from a CD,
+# first it creates a .wav file, then compresses .wav file
+# into a slightly smaller .flac file.
+#
+# Next step will probably be to get proper tag info
+# from the CD, or prompt the user for such stuff.
+# Followed by splitting the flac file into tracks with
+# flacsplit (or something similar right in here) for optimum
+# lazitude.
+#
+
+use strict;
+use warnings;
+
+# Auto flush!  This will let us use the ugly
+# progress bar.
+$| = 1;
+
+my $DEFAULT_CD_DEVICE = "/dev/sr0";
+my $WORKING_DIR=`pwd`;
+my $KILL_PROG_BAR = 0;
+
+###################
+#      SUBS       # 
+###################
+
+### PROG USAGE ###
+sub usage 
+{
+    print "Usage: $0 [output_dir] device\n";
+    print "ex: $0 lord_of_the_dance /dev/sr0\n";
+}
+
+### NO CD TEXT ###
+sub no_cdtext
+{
+    print "CD doesn't containt text info\n";
+    print "Please specify output dir\n";
+    print "$0 [output_dir] device\n";
+}
+
+### PROGRESS BAR ###
+sub prog_bar
+{
+    my @prog_chars = ('/', '-', '\\', '|');
+    while (not $KILL_PROG_BAR)
+    {
+        for my $char (@prog_chars)
+        {
+            print $char;
+
+            # Sleeps for 1500 milliseconds (hack!)
+            select(undef, undef, undef, 0.15);
+            print "\b";
+        }
+    }
+}
+
+### REMOVE QUOTES ###
+sub remove_quotes
+{
+    my $out = shift;
+
+    # Remove quotes.
+    $out =~ s/^([\"'])(.*)$1$/$2/g;
+
+    # Remove the back slash character.
+    $out =~ s/(.*)[\\](.*)/$1$2/g;
+
+    return $out;
+}
+
+##############################
+#           MAIN             #
+##############################
+
+my $cd;
+my $out_dir;
+
+# If we don't recognize it, print the usage.
+# else make an attempt to do something!
+if (scalar(@ARGV) == 2)
+{
+    $cd = $ARGV[1];
+    $out_dir = $ARGV[0];
+}
+elsif (scalar(@ARGV) == 1)
+{
+    $out_dir = $ARGV[0];
+    $cd = $DEFAULT_CD_DEVICE;
+}
+else
+{
+    &usage();
+    exit(0);
+}
+
+print "Fetching CD info...\n";
+# TODO: Ugly progress bar should go up in here.
+
+# The info for the CD.
+my $INFO;
+my $ARTIST;
+my $TITLE;
+my $OUT_FILE;
+
+my $cd_text_found = 0;
+my $cd_info = `cdda2wav -J -g $cd 2>&1`;
+
+# TODO: Make this actually detect whether the CD text was detected.
+if ($cd_info =~ /^CD-Text.*\w \w/)
+{
+    print "CD Text Detected\n";
+    # TODO: Grab the CD-Text from this mess (sadly I have no CDs that
+    # have CD-text :C on which I can test.
+    $cd_text_found = 1;
+}
+
+if ($cd_text_found)
+{
+    print "Making directory.\n";
+    if ($out_dir eq ".")
+    {
+        print "CD Text found\n";
+        print "Creating album in directory: $ARTIST\n";
+    }
+
+    mkdir $out_dir."/$ARTIST";
+    $out_dir .= "/$ARTIST/$TITLE";
+    $OUT_FILE = $TITLE;
+
+}
+else
+{
+    if ($out_dir eq ".")
+    {
+        &no_cdtext();
+    }
+
+    $OUT_FILE = $out_dir;
+}
+
+mkdir $out_dir;
+chdir $out_dir;
+
+print "Ripping WAV file...\n";
+`cdda2wav -cuefile -paranoia -t all dev=$cd "$OUT_FILE.wav" &> "$OUT_FILE.log"`;
+
+# TODO: More than just flac.  Hard drive isn't too thrilled about flac...
+print "Creating FLAC file\n";
